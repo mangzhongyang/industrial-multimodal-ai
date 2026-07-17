@@ -14,6 +14,8 @@ synthetic_factory_data/
 *.onnx
 *.png
 !outputs/*.py
+# Keep the one compact, reproducible sample used by the hosted dashboard.
+!outputs/predict_sample/images/sample_000019.png
 
 # Runtime secrets and IDE settings
 .env
