@@ -16,12 +16,14 @@ import os
 import queue
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
+from PIL import Image, ImageDraw
 from streamlit_autorefresh import st_autorefresh
 
 try:
@@ -34,6 +36,7 @@ API_URL = os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
 if not API_URL.startswith(("http://", "https://")):
     API_URL = f"http://{API_URL}"
 REFRESH_MS = int(os.getenv("DASHBOARD_REFRESH_MS", "3000"))
+DEMO_IMAGE_PATH = Path(__file__).parent / "predict_sample" / "images" / "sample_000019.png"
 
 
 def api_get(path: str) -> Any | None:
@@ -125,8 +128,41 @@ def overview_tab(device_id: str) -> None:
     st.caption("红点：RUL 低于 30% 的异常预测。")
 
 
+def cloud_demo_card() -> None:
+    """Show a bundled example so portfolio visitors see results immediately."""
+    st.markdown("#### 云端预置演示案例")
+    st.caption("无需上传或调用接口：此为固定合成样品及其已验证的演示推理结果。")
+    if not DEMO_IMAGE_PATH.exists():
+        st.info("演示图片将在下一次部署中可用。")
+        return
+
+    original = Image.open(DEMO_IMAGE_PATH).convert("RGB")
+    annotated = original.copy()
+    draw = ImageDraw.Draw(annotated)
+    # Coordinates are the YOLO labels for this reproducible, seed-fixed sample.
+    defects = [
+        ("划痕", (140, 260, 164, 347), "#e74c3c"),
+        ("脏污", (359, 37, 441, 131), "#f1c40f"),
+    ]
+    for name, box, color in defects:
+        draw.rectangle(box, outline=color, width=4)
+        draw.text((box[0], max(0, box[1] - 20)), name, fill=color)
+
+    left, right = st.columns(2)
+    left.image(original, caption="合成产品表面样品：划痕 + 脏污", use_container_width=True)
+    right.image(annotated, caption="YOLO 缺陷标注可视化", use_container_width=True)
+    rul, defect, alert = st.columns(3)
+    rul.metric("预测 RUL", "0.3%")
+    defect.metric("视觉分类", "脏污（stain）")
+    alert.error("设备预警：RUL 低于 30%")
+    st.caption("演示结果：good 0.0 · scratch 0.0 · stain 1.0")
+
+
 def visual_tab(device_id: str) -> None:
     st.subheader("视觉质检")
+    cloud_demo_card()
+    st.divider()
+    st.markdown("#### 在线提交新样品")
     upload = st.file_uploader("上传产品表面图片", type=["png", "jpg", "jpeg"])
     default_history = json.dumps(
         [
