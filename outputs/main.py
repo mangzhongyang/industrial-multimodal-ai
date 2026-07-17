@@ -257,6 +257,14 @@ async def latest_device_status(device_id: str, limit: int = 100) -> list[dict[st
     return [json.loads(value) for value in values]
 
 
+@app.delete("/devices/{device_id}/status")
+async def clear_device_status(device_id: str) -> dict[str, int | str]:
+    """Clear a device's cached predictions so its dashboard chart starts fresh."""
+    services: AppState = app.state.services
+    deleted = await services.redis_client.delete(f"{DEVICE_CACHE_PREFIX}{device_id}:status")
+    return {"device_id": device_id, "deleted_keys": int(deleted)}
+
+
 @app.websocket("/ws/{device_id}")
 async def device_websocket(websocket: WebSocket, device_id: str) -> None:
     await manager.connect(device_id, websocket)

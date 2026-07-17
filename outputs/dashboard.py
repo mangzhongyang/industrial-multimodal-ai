@@ -49,6 +49,16 @@ def api_get(path: str) -> Any | None:
         return None
 
 
+def api_delete(path: str) -> bool:
+    try:
+        response = requests.delete(f"{API_URL}{path}", timeout=10)
+        response.raise_for_status()
+        return True
+    except requests.RequestException as error:
+        st.sidebar.error(f"清空失败：{error}")
+        return False
+
+
 @st.cache_resource(show_spinner=False)
 def get_websocket_collector(device_id: str) -> queue.Queue[dict[str, Any]] | None:
     """Maintain one process-wide WebSocket per device across Streamlit reruns."""
@@ -213,6 +223,11 @@ st.set_page_config(page_title="工业 AI 仪表盘", page_icon="🏭", layout="w
 st.title("🏭 智能制造 AI 边缘仪表盘")
 device_id = st.sidebar.text_input("设备 ID", value="PLC-001")
 st.sidebar.markdown(f"API 文档：[打开 /docs]({API_URL}/docs)")
+if st.sidebar.button("清空当前设备历史", type="secondary", use_container_width=True):
+    if api_delete(f"/devices/{device_id}/status"):
+        st.sidebar.success(f"已清空 {device_id} 的历史数据")
+        st.session_state.alerts = []
+        st.rerun()
 st_autorefresh(interval=REFRESH_MS, key="industrial-dashboard-refresh")
 start_websocket_collector(device_id)
 
