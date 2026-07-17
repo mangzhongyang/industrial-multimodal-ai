@@ -15,6 +15,37 @@
 
 面向边缘工业场景的端到端样例：模拟 PLC 传感器与产品表面缺陷，使用 TCN 预测设备健康/RUL、ResNet-34 分类视觉缺陷，并通过 FastAPI、Redis、WebSocket 和 Streamlit 提供实时服务与仪表盘。
 
+## 项目迭代与问题解决记录
+
+本项目不仅提供模型与代码，也完整验证了从 GitHub 到 Render 云端的交付链路。以下记录了实现过程中遇到的典型问题、根因和最终处理方式，便于复现部署与展示工程化能力。
+
+| 问题 | 根因 | 解决方案 |
+| --- | --- | --- |
+| Git 命令提示找不到文件或没有远程仓库 | 在用户主目录而不是项目目录执行命令 | 始终先 `cd` 到项目根目录，再执行 `git add`、`commit` 和 `push` |
+| GitHub Actions 的 Flake8 检查失败 | 性能脚本中部分导入不在文件顶部（E402） | 调整导入顺序，并通过 Black、Flake8 与 pytest 验证 |
+| Render API 启动失败，无法连接 Redis | 缓存服务尚未就绪或环境变量引用未完成 | API 启动阶段增加 Redis 重试；使用 Blueprint 注入连接串 |
+| Render 无法创建新的免费缓存 | Render 免费套餐每个工作区只允许一个 Key Value 实例 | 清理旧的 Blueprint 托管缓存后，在同一区域重新创建并绑定 API |
+| 云端仪表盘无法访问 API | 免费 Render Web Service 不能接收私有网络流量，仪表盘使用了内部 host:port | Dashboard 改用 API 的公开 HTTPS 地址；Redis/Postgres 仍保持内部连接 |
+| `/predict` 返回 422 | 传感器字段名不匹配，或历史数据少于 5 条 | 明确使用 `vibration_mm_s`、`current_a`、`temperature_c`，并校验至少 5 条读数 |
+| `/predict` 返回 502 | Streamlit 自动刷新重复创建 WebSocket；Grad-CAM 推理在免费实例上资源开销较大 | 复用每台设备的 WebSocket 订阅；冻结 ResNet 权重，仅对目标特征图求梯度，并避免重复视觉前向推理 |
+| 点击 API 链接出现 `Not Found` | FastAPI 未定义根路由 `/` | 仪表盘链接直接指向 `/docs`，提供可操作的 Swagger 文档 |
+| 云端预置演示图片未显示 | `.gitignore` 忽略了所有 PNG，样品图未被推送 | 为预置样品图增加例外规则，并把 PNG 作为仪表盘资源随 Docker 镜像部署 |
+| 图表测试后无法恢复初始状态 | Redis 会保存每台设备最近 100 条预测 | 新增 `DELETE /devices/{device_id}/status` 与仪表盘“清空当前设备历史”按钮 |
+
+### 本次新增的展示能力
+
+- 云端预置视觉质检案例：无需上传图片，即可查看原图、YOLO 缺陷框、脏污分类、0.3% RUL 与设备预警。
+- 在线体验入口：README、仪表盘与 API 文档均提供可点击访问链接。
+- 一键清空设备历史：便于演示者在测试后让趋势图恢复初始状态。
+- 面向免费云实例的推理优化：降低 Grad-CAM 推理的资源消耗，同时保留可解释性热力图。
+- 可靠的实时推送：仪表盘自动刷新时复用 WebSocket 连接，避免连接泄漏。
+
+### 演示流程
+
+1. 打开 [云端仪表盘](https://industrial-ai-dashboard-rz5t.onrender.com)，在“视觉质检”查看预置演示案例。
+2. 打开 [API 文档](https://industrial-ai-api-zo8e.onrender.com/docs)，在 `POST /predict` 上传图片并提交至少 5 条 PLC 传感器读数。
+3. 返回仪表盘查看趋势、异常点和 WebSocket 预警；需要重新演示时，点击侧边栏“清空当前设备历史”。
+
 ## 架构
 
 ```mermaid
