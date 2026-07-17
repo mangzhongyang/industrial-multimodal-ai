@@ -46,31 +46,42 @@ def api_get(path: str) -> Any | None:
         return None
 
 
-def start_websocket_collector(device_id: str) -> None:
-    """Start one background subscriber per selected device for this browser session."""
+@st.cache_resource(show_spinner=False)
+def get_websocket_collector(device_id: str) -> queue.Queue[dict[str, Any]] | None:
+    """Maintain one process-wide WebSocket per device across Streamlit reruns."""
     if websocket is None:
-        st.warning("未安装 websocket-client，日志中心仅显示本次页面中已接收的记录。")
-        return
-    if st.session_state.get("ws_device") == device_id and "alert_queue" in st.session_state:
-        return
-    st.session_state.ws_device = device_id
-    st.session_state.alert_queue = queue.Queue()
-    st.session_state.alerts = []
-    message_queue: queue.Queue[dict[str, Any]] = st.session_state.alert_queue
+        return None
+    message_queue: queue.Queue[dict[str, Any]] = queue.Queue()
     ws_url = API_URL.replace("http://", "ws://").replace("https://", "wss://") + f"/ws/{device_id}"
 
     def listen() -> None:
         while True:
+            connection = None
             try:
                 connection = websocket.create_connection(ws_url, timeout=10)
                 while True:
                     payload = json.loads(connection.recv())
-                    if payload.get("type") == "设备预警":
+                    if payload.get("type") == "璁惧棰勮":
                         message_queue.put(payload)
             except Exception:
-                time.sleep(3)  # Reconnect without blocking Streamlit's UI thread.
+                time.sleep(3)
+            finally:
+                if connection is not None:
+                    connection.close()
 
     threading.Thread(target=listen, daemon=True, name=f"alert-ws-{device_id}").start()
+    return message_queue
+
+
+def start_websocket_collector(device_id: str) -> None:
+    """Start one background subscriber per selected device for this browser session."""
+    message_queue = get_websocket_collector(device_id)
+    if message_queue is None:
+        return
+    if st.session_state.get("ws_device") != device_id:
+        st.session_state.ws_device = device_id
+        st.session_state.alerts = []
+    st.session_state.alert_queue = message_queue
 
 
 def drain_alerts() -> None:
