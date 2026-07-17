@@ -1,5 +1,12 @@
 # 智能制造多模态 AI 作品集
 
+## 在线体验
+
+- [打开智能制造 AI 仪表盘](https://industrial-ai-dashboard-rz5t.onrender.com)
+- [打开 FastAPI 接口文档（提交图片与传感器数据）](https://industrial-ai-api-zo8e.onrender.com/docs)
+
+> Render 免费实例在无访问后会休眠。首次打开或首次提交预测时，请等待约 30–60 秒完成唤醒。
+
 面向边缘工业场景的端到端样例：模拟 PLC 传感器与产品表面缺陷，使用 TCN 预测设备健康/RUL、ResNet-34 分类视觉缺陷，并通过 FastAPI、Redis、WebSocket 和 Streamlit 提供实时服务与仪表盘。
 
 ## 架构
