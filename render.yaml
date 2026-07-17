@@ -31,10 +31,9 @@ services:
     autoDeployTrigger: checksPass
     envVars:
       - key: API_URL
-        fromService:
-          name: industrial-ai-api
-          type: web
-          property: hostport
+        # Free Render web services cannot receive private-network traffic.
+        # The dashboard therefore calls the API's stable public URL.
+        value: https://industrial-ai-api-zo8e.onrender.com
       - key: DASHBOARD_REFRESH_MS
         value: "3000"
 
