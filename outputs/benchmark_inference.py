@@ -19,12 +19,12 @@ from typing import Callable
 # Windows/edge accounts before importing pyplot.
 os.environ.setdefault("MPLCONFIGDIR", str(Path(__file__).resolve().parent / ".matplotlib"))
 
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
 
-from export_onnx import create_onnx_session, dummy_input, run_onnx
-from model_factory import load_checkpoint
+from export_onnx import create_onnx_session, dummy_input, run_onnx  # noqa: E402
+from model_factory import load_checkpoint  # noqa: E402
 
 
 def measure(inference: Callable[[], object], warmup: int, iterations: int, batch_size: int) -> tuple[float, float]:
