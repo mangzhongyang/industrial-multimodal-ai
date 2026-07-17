@@ -1,0 +1,23 @@
+# Python environments and generated caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+outputs/.matplotlib/
+
+# Temporary/generated local assets
+work/
+synthetic_factory_data/
+*.pt
+*.onnx
+*.png
+!outputs/*.py
+
+# Runtime secrets and IDE settings
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
