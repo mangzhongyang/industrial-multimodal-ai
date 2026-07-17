@@ -91,6 +91,9 @@ def build_models(device: torch.device) -> tuple[HealthTCN, ResNet34DefectClassif
         vision = ResNet34DefectClassifier(VisionConfig(pretrained=False)).to(device)
     tcn.eval()
     vision.eval()
+    # Grad-CAM below differentiates only the final convolution feature map. Freezing
+    # weights prevents allocating ResNet parameter gradients on constrained hosts.
+    vision.requires_grad_(False)
     return tcn, vision
 
 
@@ -169,12 +172,12 @@ def infer_sync(services: AppState, sensor_history: torch.Tensor, image: torch.Te
     image = image.to(services.device)
     with torch.inference_mode():
         rul = float(services.tcn(sensor_history)[0, 0].item())
-        logits = services.vision(image)
-        probabilities = logits.softmax(dim=1)[0].detach().cpu()
-        class_id = int(probabilities.argmax().item())
-    # Grad-CAM needs gradients, so it runs outside inference_mode.
+    # This is the only vision forward pass. Grad-CAM returns its logits as well,
+    # avoiding a duplicate ResNet execution for classification.
     with GradCAM(services.vision) as cam:
-        heatmap, _ = cam.generate(image, target_class=class_id)
+        heatmap, class_ids, logits = cam.generate(image)
+    probabilities = logits.softmax(dim=1)[0].cpu()
+    class_id = int(class_ids[0].item())
     # Reverse ImageNet normalization before creating a compact PNG overlay.
     visual = image.detach().cpu()[0]
     mean = torch.tensor([0.485, 0.456, 0.406])[:, None, None]

@@ -165,6 +165,10 @@ class GradCAM:
         self._backward_handle = model.cam_target_layer.register_full_backward_hook(self._save_gradients)
 
     def _save_activations(self, _module: nn.Module, _inputs: tuple[Tensor, ...], output: Tensor) -> None:
+        # Inference services freeze all model weights to avoid allocating parameter
+        # gradients. Marking only this feature map differentiable retains genuine
+        # Grad-CAM while keeping memory use suitable for small edge instances.
+        output.requires_grad_(True)
         self.activations = output
 
     def _save_gradients(
@@ -172,8 +176,8 @@ class GradCAM:
     ) -> None:
         self.gradients = grad_outputs[0]
 
-    def generate(self, image: Tensor, target_class: int | Tensor | None = None) -> tuple[Tensor, Tensor]:
-        """Return (heatmaps, selected_class_ids) for an image batch."""
+    def generate(self, image: Tensor, target_class: int | Tensor | None = None) -> tuple[Tensor, Tensor, Tensor]:
+        """Return (heatmaps, selected_class_ids, logits) for an image batch."""
         was_training = self.model.training
         self.model.eval()
         self.model.zero_grad(set_to_none=True)
@@ -196,7 +200,7 @@ class GradCAM:
         maximum = cam.amax(dim=(1, 2), keepdim=True)
         heatmaps = (cam - minimum) / (maximum - minimum).clamp_min(1e-8)
         self.model.train(was_training)
-        return heatmaps.detach(), class_ids.detach()
+        return heatmaps.detach(), class_ids.detach(), logits.detach()
 
     def close(self) -> None:
         self._forward_handle.remove()
