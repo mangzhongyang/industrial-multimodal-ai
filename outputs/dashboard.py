@@ -176,7 +176,7 @@ def log_tab() -> None:
 st.set_page_config(page_title="工业 AI 仪表盘", page_icon="🏭", layout="wide")
 st.title("🏭 智能制造 AI 边缘仪表盘")
 device_id = st.sidebar.text_input("设备 ID", value="PLC-001")
-st.sidebar.caption(f"API：{API_URL}")
+st.sidebar.markdown(f"API 文档：[打开 /docs]({API_URL}/docs)")
 st_autorefresh(interval=REFRESH_MS, key="industrial-dashboard-refresh")
 start_websocket_collector(device_id)
 
