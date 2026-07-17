@@ -15,6 +15,7 @@ import asyncio
 import base64
 import io
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -32,9 +33,12 @@ from websocket_manager import manager
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 RUL_ALERT_THRESHOLD = float(os.getenv("RUL_ALERT_THRESHOLD", "0.30"))
+REDIS_STARTUP_RETRIES = int(os.getenv("REDIS_STARTUP_RETRIES", "30"))
+REDIS_RETRY_INTERVAL_S = float(os.getenv("REDIS_RETRY_INTERVAL_S", "2"))
 TCN_CHECKPOINT = os.getenv("TCN_CHECKPOINT", "")
 VISION_CHECKPOINT = os.getenv("VISION_CHECKPOINT", "")
 DEVICE_CACHE_PREFIX = "industrial:device:"
+logger = logging.getLogger(__name__)
 
 
 class SensorReading(BaseModel):
@@ -95,9 +99,24 @@ async def lifespan(app: FastAPI):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tcn, vision = await asyncio.to_thread(build_models, device)
     redis_client = redis.from_url(REDIS_URL, encoding="utf-8", decode_responses=True)
-    try:
-        await redis_client.ping()
-    except Exception:
+    for attempt in range(1, REDIS_STARTUP_RETRIES + 1):
+        try:
+            await redis_client.ping()
+            break
+        except Exception as error:
+            if attempt == REDIS_STARTUP_RETRIES:
+                await redis_client.aclose()
+                raise RuntimeError(
+                    f"Unable to connect to Redis at {REDIS_URL} after {REDIS_STARTUP_RETRIES} attempts"
+                ) from error
+            logger.warning(
+                "Redis is not ready (attempt %s/%s); retrying in %s seconds",
+                attempt,
+                REDIS_STARTUP_RETRIES,
+                REDIS_RETRY_INTERVAL_S,
+            )
+            await asyncio.sleep(REDIS_RETRY_INTERVAL_S)
+    else:  # Defensive guard for static analysis; loop either breaks or raises.
         await redis_client.aclose()
         raise RuntimeError(f"Unable to connect to Redis at {REDIS_URL}")
     app.state.services = AppState()
