@@ -31,6 +31,8 @@ except ImportError:
 
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
+if not API_URL.startswith(("http://", "https://")):
+    API_URL = f"http://{API_URL}"
 REFRESH_MS = int(os.getenv("DASHBOARD_REFRESH_MS", "3000"))
 
 

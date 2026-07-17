@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: industrial-ai-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: industrial-ai-cache
+          type: keyvalue
+          property: connectionString
+      - key: POSTGRES_DSN
+        fromDatabase:
+          name: industrial-ai-db
+          property: connectionString
+      - key: RUL_ALERT_THRESHOLD
+        value: "0.30"
+
+  - type: web
+    name: industrial-ai-dashboard
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerCommand: streamlit run dashboard.py --server.address 0.0.0.0 --server.port $PORT
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: API_URL
+        fromService:
+          name: industrial-ai-api
+          type: web
+          property: hostport
+      - key: DASHBOARD_REFRESH_MS
+        value: "3000"
+
+  - type: keyvalue
+    name: industrial-ai-cache
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+databases:
+  - name: industrial-ai-db
+    plan: free
+    region: singapore
+    databaseName: industrial
+    user: industrial

@@ -53,6 +53,16 @@ flowchart LR
 
 > 初始模型是未训练结构。生产使用前，训练模型后将 `.pt` checkpoint 挂载至 API 容器，并设置 `TCN_CHECKPOINT` 与 `VISION_CHECKPOINT`。
 
+## 公开云端演示（Render）
+
+仓库根目录包含 `render.yaml`，它定义了公开的 API 与 Streamlit 仪表盘，以及内部连接的 Redis 兼容缓存和 Postgres。Render 支持从该蓝图创建服务，并在 GitHub CI 检查通过后自动从 `main` 部署更新。
+
+1. 将 GitHub 仓库可见性改为 **Public**。
+2. 在 [Render Dashboard](https://dashboard.render.com/) 使用 GitHub 登录，选择 **New +** → **Blueprint**，再选择本仓库。
+3. Render 读取 `render.yaml` 后，确认创建资源；完成后打开 `industrial-ai-dashboard` 分配的 `onrender.com` URL 并分享给访客。
+
+> Render 的套餐和免费资源策略会变化。当前蓝图声明 `free` 计划；如控制台提示该资源不可用，请在创建页选择最低可用计划。API 与仪表盘默认使用随机初始化模型，部署生产版本前请在 Render 的环境变量中设置 `TCN_CHECKPOINT`、`VISION_CHECKPOINT`，并使用对象存储或持久化卷提供模型文件。
+
 ## 本地启动
 
 ```bash

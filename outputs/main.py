@@ -112,6 +112,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Industrial Edge Inference API", version="1.0.0", lifespan=lifespan)
 
 
+@app.get("/health", tags=["operations"])
+async def health() -> dict[str, str]:
+    """Lightweight readiness endpoint for container platforms and load balancers."""
+    return {"status": "ok"}
+
+
 def parse_sensor_history(raw_json: str, required_steps: int) -> torch.Tensor:
     try:
         raw_items = json.loads(raw_json)
