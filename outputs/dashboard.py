@@ -37,15 +37,27 @@ if not API_URL.startswith(("http://", "https://")):
     API_URL = f"http://{API_URL}"
 REFRESH_MS = int(os.getenv("DASHBOARD_REFRESH_MS", "3000"))
 DEMO_IMAGE_PATH = Path(__file__).parent / "predict_sample" / "images" / "sample_000019.png"
+DEMO_STATUS_ROWS = [
+    {
+        "timestamp": f"2026-07-18T09:00:{index:02d}+00:00",
+        "temperature_c": round(62.0 + index * 0.9, 2),
+        "vibration_mm_s": round(4.2 + index * 0.38, 2),
+        "current_a": round(12.8 + index * 0.18, 2),
+        "predicted_rul_percent": round(82.0 - index * 8.5, 2),
+        "defect_class": "stain" if index >= 7 else "scratch" if index >= 5 else "good",
+    }
+    for index in range(10)
+]
 
 
-def api_get(path: str) -> Any | None:
+def api_get(path: str, show_warning: bool = True) -> Any | None:
     try:
         response = requests.get(f"{API_URL}{path}", timeout=3)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as error:
-        st.warning(f"无法连接后端：{error}")
+        if show_warning:
+            st.warning(f"无法连接后端：{error}")
         return None
 
 
@@ -112,13 +124,7 @@ def drain_alerts() -> None:
     del alerts[100:]
 
 
-def overview_tab(device_id: str) -> None:
-    st.subheader("产线总览")
-    statuses = api_get(f"/devices/{device_id}/status?limit=100")
-    if not statuses:
-        st.info("暂无状态数据。请先通过 /predict 提交生产样本。")
-        return
-    frame = pd.DataFrame(statuses)
+def render_status_chart(frame: pd.DataFrame) -> None:
     frame["timestamp"] = pd.to_datetime(frame["timestamp"])
     frame = frame.sort_values("timestamp")
     metrics = [field for field in ("temperature_c", "vibration_mm_s") if field in frame.columns]
@@ -136,6 +142,16 @@ def overview_tab(device_id: str) -> None:
     points = alt.Chart(anomalies).mark_point(color="red", size=90).encode(x="timestamp:T", y="value:Q")
     st.altair_chart((lines + points).properties(height=360), use_container_width=True)
     st.caption("红点：RUL 低于 30% 的异常预测。")
+
+
+def overview_tab(device_id: str) -> None:
+    st.subheader("产线总览")
+    statuses = api_get(f"/devices/{device_id}/status?limit=100", show_warning=False)
+    if not statuses:
+        st.info("当前显示云端预置演示数据；提交 /predict 后会切换为真实设备状态。")
+        render_status_chart(pd.DataFrame(DEMO_STATUS_ROWS))
+        return
+    render_status_chart(pd.DataFrame(statuses))
 
 
 def cloud_demo_card() -> None:
